@@ -3,11 +3,18 @@ import { EmbedBuilder } from "discord.js";
 import db from "./loadDatabase.js";
 
 const spamMap = new Map();
+const processingUsers = new Set();  // Empêche le traitement en parallèle
+const userAlertCooldown = new Map(); // Cooldown pour alertes
 
 // ======================
-// Centralisation alertes
+// Centralisation alertes avec cooldown
 // ======================
 const sendAlert = async (message, text) => {
+  const now = Date.now();
+  const last = userAlertCooldown.get(message.author.id) || 0;
+  if (now - last < 1000) return; // 1 seconde de cooldown
+  userAlertCooldown.set(message.author.id, now);
+
   const embed = new EmbedBuilder()
     .setColor(config.color)
     .setDescription(text);
@@ -23,9 +30,7 @@ const bypass = async (userId) => {
   return new Promise(resolve => {
     db.get('SELECT id FROM owner WHERE id = ?', [userId], (err, row) => {
       if (row) return resolve(true);
-      db.get('SELECT id FROM whitelist WHERE id = ?', [userId], (err2, row2) => {
-        resolve(!!row2);
-      });
+      db.get('SELECT id FROM whitelist WHERE id = ?', [userId], (err2, row2) => resolve(!!row2));
     });
   });
 };
@@ -71,8 +76,7 @@ const antiEveryone = async (message) => {
   if (await bypass(message.author.id)) return;
 
   db.get('SELECT antieveryone FROM antiraid WHERE guild = ?', [message.guild.id], async (err, row) => {
-    if (!row?.antieveryone) return;
-    if (!message.mentions.everyone) return;
+    if (!row?.antieveryone || !message.mentions.everyone) return;
 
     try {
       await message.delete();
@@ -159,17 +163,23 @@ const handleCommands = async (message, bot, config) => {
 };
 
 // ======================
-// Export listener unique
+// Export listener unique avec lock
 // ======================
 export default {
   name: 'messageCreate',
   async execute(message, bot, config) {
     if (!message.guild || message.author.bot) return;
+    if (processingUsers.has(message.author.id)) return; // Empêche doublons
+    processingUsers.add(message.author.id);
 
-    await antiLink(message);
-    await antiEveryone(message);
-    await antiSpam(message);
-    await handleCommands(message, bot, config);
+    try {
+      await antiLink(message);
+      await antiEveryone(message);
+      await antiSpam(message);
+      await handleCommands(message, bot, config);
+    } finally {
+      processingUsers.delete(message.author.id);
+    }
   },
   once: false,
 };
