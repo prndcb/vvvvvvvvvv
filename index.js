@@ -1,70 +1,111 @@
-import Discord from "discord.js"
-import { EmbedBuilder } from "discord.js";
-import config from "./config.json" with { type: 'json' }
-import { GiveawaysManager } from "discord-giveaways";
+import Discord, {
+  Client,
+  Collection,
+  Partials,
+  GatewayIntentBits,
+  EmbedBuilder
+} from "discord.js";
 
-const bot = new Discord.Client({
-	intents: 3276799,
-	partials: [
-		Discord.Partials.Channel,
-		Discord.Partials.Message,
-		Discord.Partials.User,
-		Discord.Partials.GuildMember,
-		Discord.Partials.Reaction,
-		Discord.Partials.ThreadMember,
-		Discord.Partials.GuildScheduledEvent
-	]
+import config from "./config.json" with { type: "json" };
+import { GiveawaysManager } from "discord-giveaways";
+import express from "express";
+
+/* ===================== */
+/*  KEEP ALIVE (RENDER)  */
+/* ===================== */
+const app = express();
+app.get("/", (req, res) => res.send("Bot alive"));
+app.listen(3000, () => {
+  console.log("[WEB] Serveur HTTP lancé (Render OK)");
 });
 
-bot.commands = new Discord.Collection();
-bot.slashCommands = new Discord.Collection();
+/* ===================== */
+/*   CLIENT DISCORD      */
+/* ===================== */
+const bot = new Client({
+  intents: Object.values(GatewayIntentBits),
+  partials: [
+    Partials.Channel,
+    Partials.Message,
+    Partials.User,
+    Partials.GuildMember,
+    Partials.Reaction,
+    Partials.ThreadMember,
+    Partials.GuildScheduledEvent
+  ]
+});
+
+bot.commands = new Collection();
+bot.slashCommands = new Collection();
 bot.setMaxListeners(70);
 
-bot.login(config.token)
-	.then(() => {
-		console.log(`[INFO] > ${bot.user.tag} est connecté`);
-		console.log(`[Invite] https://discord.com/oauth2/authorize?client_id=${bot.user.id}&permissions=8&integration_type=0&scope=bot`);
-		console.log(`[Support] https://dsc.gg/4wip`);
-	})
-	.catch((e) => {
-		console.log('\x1b[31m[!] — Please configure a valid bot token or allow all the intents\x1b[0m');
-	});
+/* ===================== */
+/*     LOGIN RENDER      */
+/* ===================== */
+const TOKEN = process.env.DISCORD_TOKEN;
 
-bot.giveawaysManager = new GiveawaysManager(bot, {
-	storage: './giveaways.json',
-	updateCountdownEvery: 5000,
-	default: {
-		botsCanWin: false,
-		embedColor: config.color,
-		reaction: "🎉"
-	}
-});
-bot.giveawaysManager.on('giveawayEnded', async (giveaway, winners) => {
-	const channel = await bot.channels.fetch(giveaway.channelId);
-	const message = await channel.messages.fetch(giveaway.messageId);
-
-	setTimeout(async () => {
-		const reaction = message.reactions.cache.get("🎉");
-		let participantsCount = 0;
-		if (reaction) {
-			const users = await reaction.users.fetch();
-			participantsCount = users.filter(u => !u.bot).size;
-		}
-		const embed = new EmbedBuilder()
-			.setTitle(giveaway.prize)
-			.setDescription(
-				`Fin: <t:${Math.floor(giveaway.endAt / 1000)}:R> <t:${Math.floor(giveaway.endAt / 1000)}:F>\n` +
-				`Organisé par: ${giveaway.hostedBy?.id || giveaway.hostedBy}\n` +
-				`Participants: ${participantsCount}\n` +
-				`Gagnant(s): ${winners.map(w => `<@${w.id}>`).join(', ') || "Aucun"}\n`
-			)
-			.setColor(config.color);
-		await message.edit({ embeds: [embed], components: [] });
-	}, 1000);
+if (!TOKEN) {
+  console.error("❌ DISCORD_TOKEN manquant (Render > Environment Variables)");
+  process.exit(1);
 }
-);
-const commandHandler = (await import('./Handler/Commands.js')).default(bot);
-const slashcommandHandler = (await import('./Handler/slashCommands.js')).default(bot);
-const eventdHandler = (await import('./Handler/Events.js')).default(bot);
-const anticrashHandler = (await import('./Handler/anticrash.js')).default;
-anticrashHandler(bot);
+
+bot.login(TOKEN)
+  .then(() => {
+    console.log(`[INFO] ${bot.user.tag} est connecté`);
+    console.log(
+      `[INVITE] https://discord.com/oauth2/authorize?client_id=${bot.user.id}&permissions=8&scope=bot`
+    );
+  })
+  .catch(() => {
+    console.error("❌ Token invalide ou intents non autorisés");
+    process.exit(1);
+  });
+
+/* ===================== */
+/*  GIVEAWAYS MANAGER    */
+/* ===================== */
+bot.giveawaysManager = new GiveawaysManager(bot, {
+  storage: "./giveaways.json",
+  updateCountdownEvery: 5000,
+  default: {
+    botsCanWin: false,
+    embedColor: config.color,
+    reaction: "🎉"
+  }
+});
+
+bot.giveawaysManager.on("giveawayEnded", async (giveaway, winners) => {
+  const channel = await bot.channels.fetch(giveaway.channelId);
+  const message = await channel.messages.fetch(giveaway.messageId);
+
+  setTimeout(async () => {
+    const reaction = message.reactions.cache.get("🎉");
+    let participantsCount = 0;
+
+    if (reaction) {
+      const users = await reaction.users.fetch();
+      participantsCount = users.filter(u => !u.bot).size;
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(giveaway.prize)
+      .setDescription(
+        `Fin: <t:${Math.floor(giveaway.endAt / 1000)}:F>\n` +
+        `Organisé par: ${giveaway.hostedBy?.id || giveaway.hostedBy}\n` +
+        `Participants: ${participantsCount}\n` +
+        `Gagnant(s): ${winners.map(w => `<@${w.id}>`).join(", ") || "Aucun"}`
+      )
+      .setColor(config.color);
+
+    await message.edit({ embeds: [embed], components: [] });
+  }, 1000);
+});
+
+/* ===================== */
+/*      HANDLERS         */
+/* ===================== */
+(await import("./Handler/Commands.js")).default(bot);
+(await import("./Handler/slashCommands.js")).default(bot);
+(await import("./Handler/Events.js")).default(bot);
+const anticrash = (await import("./Handler/anticrash.js")).default;
+anticrash(bot);
