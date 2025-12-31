@@ -3,25 +3,23 @@ import Discord, {
   Collection,
   Partials,
   GatewayIntentBits,
-  EmbedBuilder
+  EmbedBuilder,
+  ActivityType
 } from "discord.js";
-
-import config from "./config.json" with { type: "json" };
 import { GiveawaysManager } from "discord-giveaways";
 import express from "express";
+import config from "./config.json" with { type: "json" };
 
-/* ===================== */
-/*  KEEP ALIVE (RENDER)  */
-/* ===================== */
+// =====================
+//  KEEP ALIVE (RENDER)
+// =====================
 const app = express();
-app.get("/", (req, res) => res.send("Bot alive"));
-app.listen(3000, () => {
-  console.log("[WEB] Serveur HTTP lancé (Render OK)");
-});
+app.get("/", (_, res) => res.send("Bot alive"));
+app.listen(3000, () => console.log("[WEB] Serveur HTTP lancé (Render OK)"));
 
-/* ===================== */
-/*   CLIENT DISCORD      */
-/* ===================== */
+// =====================
+//   CLIENT DISCORD
+// =====================
 const bot = new Client({
   intents: Object.values(GatewayIntentBits),
   partials: [
@@ -39,11 +37,10 @@ bot.commands = new Collection();
 bot.slashCommands = new Collection();
 bot.setMaxListeners(70);
 
-/* ===================== */
-/*     LOGIN RENDER      */
-/* ===================== */
+// =====================
+//     LOGIN RENDER
+// =====================
 const TOKEN = process.env.DISCORD_TOKEN;
-
 if (!TOKEN) {
   console.error("❌ DISCORD_TOKEN manquant (Render > Environment Variables)");
   process.exit(1);
@@ -61,9 +58,9 @@ bot.login(TOKEN)
     process.exit(1);
   });
 
-/* ===================== */
-/*  GIVEAWAYS MANAGER    */
-/* ===================== */
+// =====================
+//  GIVEAWAYS MANAGER
+// =====================
 bot.giveawaysManager = new GiveawaysManager(bot, {
   storage: "./giveaways.json",
   updateCountdownEvery: 5000,
@@ -101,11 +98,15 @@ bot.giveawaysManager.on("giveawayEnded", async (giveaway, winners) => {
   }, 1000);
 });
 
-/* ===================== */
-/*      HANDLERS         */
-/* ===================== */
-(await import("./Handler/Commands.js")).default(bot);
-(await import("./Handler/slashCommands.js")).default(bot);
-(await import("./Handler/Events.js")).default(bot);
-const anticrash = (await import("./Handler/anticrash.js")).default;
-anticrash(bot);
+// =====================
+//      HANDLERS
+// =====================
+import loadCommands from "./Handler/Commands.js";
+import loadSlash from "./Handler/slashCommands.js";
+import loadEvents from "./Handler/Events.js";
+import anticrash from "./Handler/anticrash.js";
+
+await loadCommands(bot);   // charge toutes les commandes
+await loadSlash(bot);      // charge les slash commands
+loadEvents(bot);           // écoute READY, messageCreate etc
+anticrash(bot);            // gestion crash
