@@ -6,7 +6,7 @@ export default {
 		await bot.application.commands.set(bot.arrayOfSlashCommands);
 
 		bot.user.setPresence({
-			activities: [{ name: '4Protect V2', type: ActivityType.Streaming, url: 'https://twitch.tv/4wipyk' }], status: 'online'
+			activities: [{ name: 'Substance', type: ActivityType.Streaming, url: 'https://www.tiktok.com/@missirelia?_r=1&_t=ZN-92fcGQXZvUs' }], status: 'online'
 		});
 	}
 };
