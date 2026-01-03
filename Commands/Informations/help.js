@@ -130,7 +130,7 @@ export const command = {
 								{ name: 'Alias', value: command.aliases ? command.aliases.join(', ') : '  ' }
 							)
 							.setColor(config.color)
-							.setFooter({ text: "4Protect V2" });
+							.setFooter({ text: "Substance" });
 						await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
 						cmdchec = true;
 						break;
@@ -142,7 +142,7 @@ export const command = {
 				const notFoundEmbed = new EmbedBuilder()
 					.setDescription(`La commande \`${args[0]}\` n'existe pas.`)
 					.setColor(config.color)
-					.setFooter({ text: "4Protect V2" });
+					.setFooter({ text: "Substance" });
 				await message.reply({ embeds: [notFoundEmbed], allowedMentions: { repliedUser: false } });
 			}
 			return;
@@ -176,7 +176,7 @@ export const command = {
 						.setTitle(`${category}`)
 						.setDescription(`Pour avoir de l’aide sur une commande, utilisez \`${config.prefix}help <commande>\`\nLes paramètres entre \`<...>\` sont obligatoires tandis que ceux entre \`[...]\` sont facultatifs\n\n${commands.join('\n\n')}`)
 						.setColor(config.color)
-						.setFooter({ text: "4Protect V2" })
+						.setFooter({ text: "Substance" })
 				});
 			}
 		}
