@@ -4,23 +4,23 @@ import config from '../../config.json' with { type: 'json' };
 
 export const command = {
 	name: 'bl',
-	helpname: 'bl <id>',
+	helpname: 'bl <@user | id>',
 	description: 'Blacklist un utilisateur définitivement',
-	help: 'bl <id>',
+	help: 'bl <@user | id>',
 	run: async (bot, message, args) => {
 
-		if (!args[0]) {
+		// récup user via mention OU id
+		const user =
+			message.mentions.users.first() ||
+			(await bot.users.fetch(args[0]).catch(() => null));
+
+		if (!user) {
 			return message.reply({
-				content: `❌ Utilisation : \`${config.prefix}bl <id>\``
+				content: `❌ Utilisateur introuvable.\nUtilisation : \`${config.prefix}bl <@user | id>\``
 			});
 		}
 
-		const userId = args[0];
-
-		// vérif ID valide
-		if (!/^\d{17,20}$/.test(userId)) {
-			return message.reply({ content: '❌ ID invalide' });
-		}
+		const userId = user.id;
 
 		db.get(
 			'SELECT id FROM blacklist WHERE id = ?',
@@ -39,7 +39,7 @@ export const command = {
 							return message.reply({ content: '❌ Erreur lors du blacklist.' });
 						}
 
-						// ban immédiat s'il est sur le serveur
+						// ban immédiat s’il est sur le serveur
 						const member = await message.guild.members.fetch(userId).catch(() => null);
 						if (member) {
 							await member.ban({ reason: 'Blacklist permanente' }).catch(() => {});
@@ -47,7 +47,11 @@ export const command = {
 
 						const embed = new EmbedBuilder()
 							.setColor(config.color)
-							.setDescription(`✅ **Utilisateur blacklisté définitivement**\nID : \`${userId}\``);
+							.setDescription(
+								`✅ **Utilisateur blacklisté définitivement**\n` +
+								`👤 ${user.tag}\n` +
+								`🆔 \`${userId}\``
+							);
 
 						message.reply({ embeds: [embed] });
 					}
